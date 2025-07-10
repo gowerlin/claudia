@@ -17,6 +17,10 @@ pub enum InstallationType {
     System,
     /// Custom path specified by user
     Custom,
+    /// WSL-installed binary (Windows Subsystem for Linux)
+    Wsl,
+    /// Remote binary accessed via SSH or Docker
+    Remote,
 }
 
 /// Represents a Claude installation with metadata
@@ -188,15 +192,16 @@ fn source_preference(installation: &ClaudeInstallation) -> u8 {
         "homebrew" => 2,
         "system" => 3,
         source if source.starts_with("nvm") => 4,
-        "local-bin" => 5,
-        "claude-local" => 6,
-        "npm-global" => 7,
-        "yarn" | "yarn-global" => 8,
-        "bun" => 9,
-        "node-modules" => 10,
-        "home-bin" => 11,
-        "PATH" => 12,
-        _ => 13,
+        source if source.starts_with("wsl") => 5, // WSL installations
+        "local-bin" => 6,
+        "claude-local" => 7,
+        "npm-global" => 8,
+        "yarn" | "yarn-global" => 9,
+        "bun" => 10,
+        "node-modules" => 11,
+        "home-bin" => 12,
+        "PATH" => 13,
+        _ => 14,
     }
 }
 
@@ -214,6 +219,10 @@ fn discover_system_installations() -> Vec<ClaudeInstallation> {
 
     // 3. Check standard paths
     installations.extend(find_standard_installations());
+
+    // 4. Check WSL installations (Windows only)
+    #[cfg(target_os = "windows")]
+    installations.extend(find_wsl_installations());
 
     // Remove duplicates by path
     let mut unique_paths = std::collections::HashSet::new();
@@ -371,7 +380,7 @@ fn find_standard_installations() -> Vec<ClaudeInstallation> {
     }
 
     // Also check if claude is available in PATH (without full path)
-    if let Ok(output) = Command::new("claude").arg("--version").output() {
+    if let Ok(output) = create_command_with_env("claude").arg("--version").output() {
         if output.status.success() {
             debug!("claude is available in PATH");
             let version = extract_version_from_output(&output.stdout);
@@ -508,6 +517,12 @@ fn compare_versions(a: &str, b: &str) -> Ordering {
 /// Helper function to create a Command with proper environment variables
 /// This ensures commands like Claude can find Node.js and other dependencies
 pub fn create_command_with_env(program: &str) -> Command {
+    // Check if this is a WSL path on Windows
+    #[cfg(target_os = "windows")]
+    if program.starts_with("wsl:") {
+        return create_wsl_command(program);
+    }
+    
     let mut cmd = Command::new(program);
 
     // Inherit essential environment variables from parent process
@@ -531,6 +546,28 @@ pub fn create_command_with_env(program: &str) -> Command {
         }
     }
 
+    // On Windows, ensure SHELL is set for Claude Code CLI
+    #[cfg(target_os = "windows")]
+    {
+        if std::env::var("SHELL").is_err() {
+            // Try to find a suitable shell for Claude Code
+            let possible_shells = [
+                "C:\\Program Files\\Git\\bin\\bash.exe",
+                "C:\\Windows\\System32\\bash.exe", // WSL bash
+                "C:\\msys64\\usr\\bin\\bash.exe",  // MSYS2
+                "bash", // If bash is in PATH
+            ];
+
+            for shell_path in &possible_shells {
+                if std::path::Path::new(shell_path).exists() || shell_path == &"bash" {
+                    debug!("Setting SHELL environment variable to: {}", shell_path);
+                    cmd.env("SHELL", shell_path);
+                    break;
+                }
+            }
+        }
+    }
+
     // Add NVM support if the program is in an NVM directory
     if program.contains("/.nvm/versions/node/") {
         if let Some(node_bin_dir) = std::path::Path::new(program).parent() {
@@ -546,4 +583,149 @@ pub fn create_command_with_env(program: &str) -> Command {
     }
 
     cmd
+}
+
+/// Find Claude installations in WSL distributions (Windows only)
+#[cfg(target_os = "windows")]
+fn find_wsl_installations() -> Vec<ClaudeInstallation> {
+    let mut installations = Vec::new();
+
+    // First check if WSL is available
+    match Command::new("wsl").arg("--list").arg("--quiet").output() {
+        Ok(output) if output.status.success() => {
+            debug!("WSL is available, checking for Claude installations");
+            
+            // Get list of WSL distributions
+            let distributions = String::from_utf8_lossy(&output.stdout);
+            let mut checked_dists = Vec::new();
+            
+            // Try default distribution first
+            if let Some(installation) = check_wsl_claude_installation(None) {
+                installations.push(installation);
+                checked_dists.push("(default)".to_string());
+            }
+            
+            // Parse distribution names and check each one
+            for line in distributions.lines() {
+                let dist_name = line.trim();
+                if !dist_name.is_empty() && !dist_name.contains("(Default)") && !checked_dists.contains(&dist_name.to_string()) {
+                    if let Some(installation) = check_wsl_claude_installation(Some(dist_name)) {
+                        installations.push(installation);
+                    }
+                    checked_dists.push(dist_name.to_string());
+                }
+            }
+        }
+        _ => {
+            debug!("WSL is not available or not installed");
+        }
+    }
+
+    installations
+}
+
+/// Check for Claude installation in a specific WSL distribution
+#[cfg(target_os = "windows")]
+fn check_wsl_claude_installation(distribution: Option<&str>) -> Option<ClaudeInstallation> {
+    let mut cmd = Command::new("wsl");
+    
+    if let Some(dist) = distribution {
+        cmd.args(["-d", dist]);
+    }
+    
+    // Try to find claude using which command in WSL
+    cmd.args(["which", "claude"]);
+    
+    match cmd.output() {
+        Ok(output) if output.status.success() => {
+            let claude_path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if claude_path.is_empty() {
+                return None;
+            }
+            
+            debug!("Found Claude in WSL{}: {}", 
+                distribution.map(|d| format!(" ({})", d)).unwrap_or_default(),
+                claude_path
+            );
+            
+            // Try to get version
+            let version = get_wsl_claude_version(distribution, &claude_path).ok().flatten();
+            
+            Some(ClaudeInstallation {
+                path: format!("wsl:{}:{}", distribution.unwrap_or("default"), claude_path),
+                version,
+                source: format!("wsl{}", distribution.map(|d| format!("-{}", d)).unwrap_or_default()),
+                installation_type: InstallationType::Wsl,
+            })
+        }
+        _ => None,
+    }
+}
+
+/// Get Claude version from WSL
+#[cfg(target_os = "windows")]
+fn get_wsl_claude_version(distribution: Option<&str>, claude_path: &str) -> Result<Option<String>, String> {
+    let mut cmd = Command::new("wsl");
+    
+    if let Some(dist) = distribution {
+        cmd.args(["-d", dist]);
+    }
+    
+    cmd.args([claude_path, "--version"]);
+    
+    match cmd.output() {
+        Ok(output) => {
+            if output.status.success() {
+                Ok(extract_version_from_output(&output.stdout))
+            } else {
+                Ok(None)
+            }
+        }
+        Err(e) => {
+            warn!("Failed to get WSL Claude version: {}", e);
+            Ok(None)
+        }
+    }
+}
+
+/// Create a command that executes through WSL
+#[cfg(target_os = "windows")]
+pub fn create_wsl_command(wsl_path: &str) -> Command {
+    let parts: Vec<&str> = wsl_path.split(':').collect();
+    if parts.len() < 3 || parts[0] != "wsl" {
+        // Fallback to regular command if not a WSL path
+        return Command::new(wsl_path);
+    }
+    
+    let distribution = if parts[1] == "default" { None } else { Some(parts[1]) };
+    let actual_path = parts[2..].join(":");
+    
+    let mut cmd = Command::new("wsl");
+    
+    if let Some(dist) = distribution {
+        cmd.args(["-d", dist]);
+    }
+    
+    cmd.arg(actual_path);
+    
+    // Inherit essential environment variables
+    for (key, value) in std::env::vars() {
+        if key == "PATH" || key == "HOME" || key == "USER" || key.starts_with("ANTHROPIC_") {
+            cmd.env(key, value);
+        }
+    }
+    
+    cmd
+}
+
+/// Stub for non-Windows platforms
+#[cfg(not(target_os = "windows"))]
+fn find_wsl_installations() -> Vec<ClaudeInstallation> {
+    Vec::new()
+}
+
+/// Stub for non-Windows platforms
+#[cfg(not(target_os = "windows"))]
+pub fn create_wsl_command(_wsl_path: &str) -> Command {
+    Command::new(_wsl_path)
 }

@@ -42,6 +42,9 @@ use commands::storage::{
     storage_list_tables, storage_read_table, storage_update_row, storage_delete_row,
     storage_insert_row, storage_execute_sql, storage_reset_database,
 };
+use commands::logging::{
+    write_log, get_log_files, read_log_file, clear_logs, get_log_config, update_log_config, test_logging,
+};
 use process::ProcessRegistryState;
 use std::sync::Mutex;
 use tauri::Manager;
@@ -195,6 +198,15 @@ fn main() {
             commands::slash_commands::slash_command_get,
             commands::slash_commands::slash_command_save,
             commands::slash_commands::slash_command_delete,
+            
+            // Logging
+            write_log,
+            get_log_files,
+            read_log_file,
+            clear_logs,
+            get_log_config,
+            update_log_config,
+            test_logging,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

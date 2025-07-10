@@ -19,7 +19,7 @@
  */
 
 import { spawn } from 'child_process';
-import { mkdir, rm, readdir, copyFile, access } from 'fs/promises';
+import { mkdir, rm, readdir, copyFile, access, stat } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join, resolve } from 'path';
 
@@ -65,6 +65,32 @@ async function pathExists(path) {
     return true;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Copy a directory recursively (cross-platform)
+ * @param {string} src - Source directory path
+ * @param {string} dest - Destination directory path
+ */
+async function copyDir(src, dest) {
+  // Create destination directory if it doesn't exist
+  await mkdir(dest, { recursive: true });
+  
+  // Read all items in source directory
+  const entries = await readdir(src, { withFileTypes: true });
+  
+  for (const entry of entries) {
+    const srcPath = join(src, entry.name);
+    const destPath = join(dest, entry.name);
+    
+    if (entry.isDirectory()) {
+      // Recursively copy subdirectory
+      await copyDir(srcPath, destPath);
+    } else {
+      // Copy file
+      await copyFile(srcPath, destPath);
+    }
   }
 }
 
@@ -144,9 +170,33 @@ async function fetchClaudeCodePackage(version) {
     
     // Extract the tarball
     console.log('Extracting package...');
-    await runCommand('tar', ['-xzf', tarball], { 
-      cwd: tempDir 
-    });
+    
+    // On Windows, try to use tar if available, otherwise use npm to extract
+    if (process.platform === 'win32') {
+      try {
+        // First try using tar (available on newer Windows versions)
+        await runCommand('tar', ['-xzf', tarball], { 
+          cwd: tempDir 
+        });
+      } catch (error) {
+        console.log('tar command failed, trying alternative extraction method...');
+        // Use npm to extract the tarball
+        await runCommand('npm', ['install', tarball, '--no-save', '--no-package-lock'], {
+          cwd: tempDir
+        });
+        // Move the extracted package to the expected location
+        const nodeModulesPath = join(tempDir, 'node_modules', '@anthropic-ai', 'claude-code');
+        if (await pathExists(nodeModulesPath)) {
+          await copyDir(nodeModulesPath, packageDir);
+          await rm(join(tempDir, 'node_modules'), { recursive: true, force: true });
+        }
+      }
+    } else {
+      // On Unix-like systems, use tar
+      await runCommand('tar', ['-xzf', tarball], { 
+        cwd: tempDir 
+      });
+    }
     
     // Verify extraction
     if (!(await pathExists(packageDir))) {
@@ -207,8 +257,8 @@ async function copyRequiredFiles(packageDir) {
         await rm(destPath, { recursive: true, force: true });
       }
       
-      // Copy directory recursively using cp command
-      await runCommand('cp', ['-r', srcPath, destPath]);
+      // Copy directory recursively using cross-platform function
+      await copyDir(srcPath, destPath);
     } else {
       console.warn(`Warning: ${dir}/ directory not found in package`);
     }

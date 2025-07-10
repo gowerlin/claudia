@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Popover } from "@/components/ui/popover";
 import { api, type ClaudeVersionStatus } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
+import { LanguageSwitcher } from "./LanguageSwitcher";
 
 interface TopbarProps {
   /**
@@ -52,6 +54,7 @@ export const Topbar: React.FC<TopbarProps> = ({
   onInfoClick,
   className,
 }) => {
+  const { t } = useTranslation();
   const [versionStatus, setVersionStatus] = useState<ClaudeVersionStatus | null>(null);
   const [checking, setChecking] = useState(true);
   
@@ -180,7 +183,7 @@ export const Topbar: React.FC<TopbarProps> = ({
           className="text-xs"
         >
           <BarChart3 className="mr-2 h-3 w-3" />
-          Usage Dashboard
+          {t('topbar.usageDashboard', 'Usage Dashboard')}
         </Button>
         
         <Button
@@ -210,7 +213,7 @@ export const Topbar: React.FC<TopbarProps> = ({
           className="text-xs"
         >
           <Settings className="mr-2 h-3 w-3" />
-          Settings
+          {t('topbar.settings', 'Settings')}
         </Button>
         
         <Button
@@ -222,6 +225,8 @@ export const Topbar: React.FC<TopbarProps> = ({
         >
           <Info className="h-4 w-4" />
         </Button>
+        
+        <LanguageSwitcher />
       </div>
     </motion.div>
   );

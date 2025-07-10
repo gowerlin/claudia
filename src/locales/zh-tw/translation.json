@@ -1,0 +1,135 @@
+{
+  "common": {
+    "save": "儲存",
+    "saving": "儲存中...",
+    "cancel": "取消",
+    "back": "返回",
+    "addRule": "新增規則",
+    "addVariable": "新增變數",
+    "examples": "範例：",
+    "commonVariables": "常用變數："
+  },
+  "settings": {
+    "title": "設定",
+    "description": "設定 Claude Code 偏好選項",
+    "saveButton": "儲存設定",
+    "savedSuccess": "設定已成功儲存！",
+    "saveFailed": "儲存設定失敗",
+    "loadFailed": "載入設定失敗。請確認 ~/.claude 目錄存在。",
+    "tabs": {
+      "general": "一般",
+      "permissions": "權限",
+      "environment": "環境",
+      "advanced": "進階",
+      "hooks": "掛鉤",
+      "commands": "指令",
+      "storage": "儲存",
+      "logs": "日誌"
+    },
+    "general": {
+      "title": "一般設定",
+      "coAuthoredBy": {
+        "label": "包含「Co-authored by Claude」",
+        "description": "在 git 提交和拉取請求中加入 Claude 署名"
+      },
+      "verboseOutput": {
+        "label": "詳細輸出",
+        "description": "顯示完整的 bash 和指令輸出"
+      },
+      "chatRetention": {
+        "label": "聊天記錄保留天數",
+        "description": "本地保留聊天記錄的時間（預設：30 天）",
+        "placeholder": "30"
+      },
+      "claudeInstallation": {
+        "label": "Claude Code 安裝版本",
+        "description": "選擇要使用的 Claude Code 安裝版本。建議使用捆綁版本以獲得最佳相容性。",
+        "changeWarning": "⚠️ Claude 二進位檔路徑已變更。請記得儲存您的設定。"
+      }
+    },
+    "permissions": {
+      "title": "權限規則",
+      "description": "控制 Claude Code 可以在不需要手動批准的情況下使用哪些工具",
+      "allowRules": {
+        "title": "允許規則",
+        "placeholder": "例如：Bash(npm run test:*)",
+        "noRules": "未設定允許規則。Claude 將對所有工具請求批准。"
+      },
+      "denyRules": {
+        "title": "拒絕規則",
+        "placeholder": "例如：Bash(curl:*)",
+        "noRules": "未設定拒絕規則。"
+      },
+      "examples": {
+        "allowBash": "允許所有 bash 指令",
+        "allowExact": "允許特定指令",
+        "allowPrefix": "允許帶有前綴的指令",
+        "allowReadFile": "允許讀取特定檔案",
+        "allowEditDocs": "允許編輯 docs 目錄中的檔案"
+      }
+    },
+    "environment": {
+      "title": "環境變數",
+      "description": "套用到每個 Claude Code 工作階段的環境變數",
+      "keyPlaceholder": "KEY",
+      "valuePlaceholder": "值",
+      "noVariables": "未設定環境變數。",
+      "commonExamples": {
+        "telemetry": "啟用/停用遙測（0 或 1）",
+        "modelName": "自訂模型名稱",
+        "costWarnings": "停用成本警告（1）"
+      }
+    },
+    "advanced": {
+      "title": "進階設定",
+      "description": "進階使用者的額外設定選項",
+      "apiKeyHelper": {
+        "label": "API 金鑰輔助程式",
+        "description": "用於產生 API 請求驗證值的自訂腳本",
+        "placeholder": "/path/to/generate_api_key.sh"
+      },
+      "rawSettings": {
+        "label": "原始設定（JSON）",
+        "description": "這顯示將儲存到 ~/.claude/settings.json 的原始 JSON"
+      }
+    },
+    "hooks": {
+      "userHooks": {
+        "title": "使用者掛鉤",
+        "description": "設定套用到您使用者帳號所有 Claude Code 工作階段的掛鉤。",
+        "storedIn": "這些儲存在"
+      }
+    }
+  },
+  "topbar": {
+    "newSession": "新增工作階段",
+    "openProject": "開啟專案",
+    "sessions": "工作階段",
+    "settings": "設定",
+    "usageDashboard": "使用量儀表板"
+  },
+  "sessions": {
+    "title": "工作階段",
+    "noSessions": "尚無工作階段",
+    "startNew": "開始新的工作階段"
+  },
+  "logs": {
+    "viewer": "日誌檢視器",
+    "settings": "設定",
+    "selectFile": "選擇日誌檔案",
+    "search": "搜尋日誌...",
+    "autoRefresh": "自動重新整理",
+    "loading": "載入日誌中...",
+    "empty": "無日誌內容",
+    "selectPrompt": "選擇要檢視的日誌檔案",
+    "confirmClear": "您確定要清除所有日誌檔案嗎？",
+    "configTitle": "日誌設定",
+    "configDescription": "設定前端日誌的擷取和儲存方式",
+    "enableLogging": "啟用前端日誌記錄",
+    "maxFileSize": "最大檔案大小 (MB)",
+    "maxFileSizeHelp": "日誌檔案超過此大小時將進行輪替",
+    "maxFiles": "最大日誌檔案數量",
+    "maxFilesHelp": "達到此限制時將刪除較舊的日誌檔案",
+    "testTitle": "測試日誌記錄"
+  }
+}

@@ -225,11 +225,31 @@ fn extract_first_user_message(jsonl_path: &PathBuf) -> (Option<String>, Option<S
 /// Helper function to create a tokio Command with proper environment variables
 /// This ensures commands like Claude can find Node.js and other dependencies
 fn create_command_with_env(program: &str) -> Command {
-    // Convert std::process::Command to tokio::process::Command
-    let _std_cmd = crate::claude_binary::create_command_with_env(program);
-
-    // Create a new tokio Command from the program path
-    let mut tokio_cmd = Command::new(program);
+    // Handle WSL paths (format: wsl:distribution:path)
+    let mut tokio_cmd = if program.starts_with("wsl:") {
+        log::info!("Creating WSL command for: {}", program);
+        let parts: Vec<&str> = program.split(':').collect();
+        if parts.len() >= 3 {
+            let distribution = if parts[1] == "default" { None } else { Some(parts[1]) };
+            let actual_path = parts[2..].join(":");
+            
+            log::info!("WSL distribution: {:?}, path: {}", distribution, actual_path);
+            
+            let mut cmd = Command::new("wsl");
+            if let Some(dist) = distribution {
+                cmd.args(&["-d", dist]);
+            }
+            cmd.arg(&actual_path);
+            cmd
+        } else {
+            log::warn!("Invalid WSL path format: {}", program);
+            // Fallback if WSL path format is invalid
+            Command::new(program)
+        }
+    } else {
+        log::info!("Creating regular command for: {}", program);
+        Command::new(program)
+    };
 
     // Copy over all environment variables
     for (key, value) in std::env::vars() {
@@ -248,6 +268,28 @@ fn create_command_with_env(program: &str) -> Command {
         {
             log::debug!("Inheriting env var: {}={}", key, value);
             tokio_cmd.env(&key, &value);
+        }
+    }
+
+    // On Windows, ensure SHELL is set for Claude Code CLI
+    #[cfg(target_os = "windows")]
+    {
+        if std::env::var("SHELL").is_err() {
+            // Try to find a suitable shell for Claude Code
+            let possible_shells = [
+                "C:\\Program Files\\Git\\bin\\bash.exe",
+                "C:\\Windows\\System32\\bash.exe", // WSL bash
+                "C:\\msys64\\usr\\bin\\bash.exe",  // MSYS2
+                "bash", // If bash is in PATH
+            ];
+
+            for shell_path in &possible_shells {
+                if std::path::Path::new(shell_path).exists() || shell_path == &"bash" {
+                    log::info!("Setting SHELL environment variable to: {}", shell_path);
+                    tokio_cmd.env("SHELL", shell_path);
+                    break;
+                }
+            }
         }
     }
 
@@ -288,6 +330,64 @@ fn create_sidecar_command(
     // Set working directory
     sidecar_cmd = sidecar_cmd.current_dir(project_path);
     
+    // Set SHELL environment variable for Windows compatibility
+    #[cfg(target_os = "windows")]
+    {
+        use std::path::Path;
+        
+        // Try to find a suitable POSIX shell for Windows
+        let mut shell_path = None;
+        
+        // Check for Git Bash
+        if let Ok(git_bash) = std::env::var("PROGRAMFILES") {
+            let git_bash_path = format!("{}\\Git\\bin\\bash.exe", git_bash);
+            if Path::new(&git_bash_path).exists() {
+                shell_path = Some(git_bash_path);
+            } else {
+                // Try Program Files (x86)
+                if let Ok(git_bash_x86) = std::env::var("PROGRAMFILES(X86)") {
+                    let git_bash_x86_path = format!("{}\\Git\\bin\\bash.exe", git_bash_x86);
+                    if Path::new(&git_bash_x86_path).exists() {
+                        shell_path = Some(git_bash_x86_path);
+                    }
+                }
+            }
+        }
+        
+        // Check for WSL bash
+        if shell_path.is_none() {
+            if Path::new("C:\\Windows\\System32\\bash.exe").exists() {
+                shell_path = Some("C:\\Windows\\System32\\bash.exe".to_string());
+            }
+        }
+        
+        // Check for MSYS2 bash
+        if shell_path.is_none() {
+            if Path::new("C:\\msys64\\usr\\bin\\bash.exe").exists() {
+                shell_path = Some("C:\\msys64\\usr\\bin\\bash.exe".to_string());
+            }
+        }
+        
+        // Fallback to generic bash
+        if shell_path.is_none() {
+            shell_path = Some("bash".to_string());
+        }
+        
+        if let Some(shell) = shell_path {
+            log::info!("Setting SHELL environment variable for Windows: {}", shell);
+            sidecar_cmd = sidecar_cmd.env("SHELL", &shell);
+        }
+    }
+    
+    // For Unix-like systems, preserve existing SHELL or set to default
+    #[cfg(not(target_os = "windows"))]
+    {
+        if std::env::var("SHELL").is_err() {
+            log::info!("Setting default SHELL environment variable for Unix-like system");
+            sidecar_cmd = sidecar_cmd.env("SHELL", "/bin/bash");
+        }
+    }
+    
     Ok(sidecar_cmd)
 }
 
@@ -297,7 +397,7 @@ fn create_system_command(
     args: Vec<String>,
     project_path: &str,
 ) -> Command {
-    let mut cmd = create_command_with_env(claude_path);
+    let mut cmd = create_command_with_env(&claude_path);
     
     // Add all arguments
     for arg in args {
@@ -525,7 +625,7 @@ pub async fn open_new_session(app: AppHandle, path: Option<String>) -> Result<St
 
     #[cfg(debug_assertions)]
     {
-        let mut cmd = std::process::Command::new(claude_path);
+        let mut cmd = crate::claude_binary::create_command_with_env(&claude_path);
 
         // If a path is provided, use it; otherwise use current directory
         if let Some(project_path) = path {
@@ -687,7 +787,7 @@ pub async fn check_claude_version(app: AppHandle) -> Result<ClaudeVersionStatus,
 
     #[cfg(debug_assertions)]
     {
-        let output = std::process::Command::new(claude_path)
+        let output = crate::claude_binary::create_command_with_env(&claude_path)
             .arg("--version")
             .output();
 
@@ -753,7 +853,18 @@ pub async fn save_system_prompt(content: String) -> Result<String, String> {
 pub async fn save_claude_settings(settings: serde_json::Value) -> Result<String, String> {
     log::info!("Saving Claude settings");
 
-    let claude_dir = get_claude_dir().map_err(|e| e.to_string())?;
+    // Get or create the ~/.claude directory
+    let home_dir = dirs::home_dir()
+        .ok_or_else(|| "Could not find home directory".to_string())?;
+    let claude_dir = home_dir.join(".claude");
+    
+    // Create the directory if it doesn't exist
+    if !claude_dir.exists() {
+        fs::create_dir_all(&claude_dir)
+            .map_err(|e| format!("Failed to create ~/.claude directory: {}", e))?;
+        log::info!("Created ~/.claude directory");
+    }
+    
     let settings_path = claude_dir.join("settings.json");
 
     // Pretty print the JSON with 2-space indentation
@@ -951,9 +1062,15 @@ pub async fn execute_claude_code(
         "--dangerously-skip-permissions".to_string(),
     ];
 
+    log::info!("Claude path: {}", claude_path);
+    log::info!("Arguments: {:?}", args);
+    log::info!("Project path: {}", project_path);
+    
     if should_use_sidecar(&claude_path) {
+        log::info!("Using sidecar execution");
         spawn_claude_sidecar(app, args, prompt, model, project_path).await
     } else {
+        log::info!("Using system execution");
         let cmd = create_system_command(&claude_path, args, &project_path);
         spawn_claude_process(app, cmd, prompt, model, project_path).await
     }
@@ -1185,10 +1302,16 @@ async fn spawn_claude_process(app: AppHandle, mut cmd: Command, prompt: String, 
     use tokio::io::{AsyncBufReadExt, BufReader};
     use std::sync::Mutex;
 
+    log::info!("About to spawn Claude process");
+    log::info!("Prompt: {}", prompt);
+    
     // Spawn the process
     let mut child = cmd
         .spawn()
-        .map_err(|e| format!("Failed to spawn Claude: {}", e))?;
+        .map_err(|e| {
+            log::error!("Failed to spawn Claude: {}", e);
+            format!("Failed to spawn Claude: {}", e)
+        })?;
 
     // Get stdout and stderr
     let stdout = child.stdout.take().ok_or("Failed to get stdout")?;

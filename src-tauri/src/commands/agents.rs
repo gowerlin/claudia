@@ -796,6 +796,64 @@ fn create_agent_sidecar_command(
     // Set working directory
     sidecar_cmd = sidecar_cmd.current_dir(project_path);
     
+    // Set SHELL environment variable for Windows compatibility
+    #[cfg(target_os = "windows")]
+    {
+        use std::path::Path;
+        
+        // Try to find a suitable POSIX shell for Windows
+        let mut shell_path = None;
+        
+        // Check for Git Bash
+        if let Ok(git_bash) = std::env::var("PROGRAMFILES") {
+            let git_bash_path = format!("{}\\Git\\bin\\bash.exe", git_bash);
+            if Path::new(&git_bash_path).exists() {
+                shell_path = Some(git_bash_path);
+            } else {
+                // Try Program Files (x86)
+                if let Ok(git_bash_x86) = std::env::var("PROGRAMFILES(X86)") {
+                    let git_bash_x86_path = format!("{}\\Git\\bin\\bash.exe", git_bash_x86);
+                    if Path::new(&git_bash_x86_path).exists() {
+                        shell_path = Some(git_bash_x86_path);
+                    }
+                }
+            }
+        }
+        
+        // Check for WSL bash
+        if shell_path.is_none() {
+            if Path::new("C:\\Windows\\System32\\bash.exe").exists() {
+                shell_path = Some("C:\\Windows\\System32\\bash.exe".to_string());
+            }
+        }
+        
+        // Check for MSYS2 bash
+        if shell_path.is_none() {
+            if Path::new("C:\\msys64\\usr\\bin\\bash.exe").exists() {
+                shell_path = Some("C:\\msys64\\usr\\bin\\bash.exe".to_string());
+            }
+        }
+        
+        // Fallback to generic bash
+        if shell_path.is_none() {
+            shell_path = Some("bash".to_string());
+        }
+        
+        if let Some(shell) = shell_path {
+            log::info!("Setting SHELL environment variable for agent execution on Windows: {}", shell);
+            sidecar_cmd = sidecar_cmd.env("SHELL", &shell);
+        }
+    }
+    
+    // For Unix-like systems, preserve existing SHELL or set to default
+    #[cfg(not(target_os = "windows"))]
+    {
+        if std::env::var("SHELL").is_err() {
+            log::info!("Setting default SHELL environment variable for agent execution on Unix-like system");
+            sidecar_cmd = sidecar_cmd.env("SHELL", "/bin/bash");
+        }
+    }
+    
     Ok(sidecar_cmd)
 }
 
@@ -1843,6 +1901,19 @@ pub async fn set_claude_binary_path(db: State<'_, AgentDb>, path: String) -> Res
         return Ok(());
     }
 
+    // Special handling for WSL paths (format: wsl:distribution:path)
+    if path.starts_with("wsl:") {
+        // For WSL paths, we don't validate file existence on the Windows side
+        // as the path exists within the WSL environment
+        conn.execute(
+            "INSERT INTO app_settings (key, value) VALUES ('claude_binary_path', ?1)
+             ON CONFLICT(key) DO UPDATE SET value = ?1",
+            params![path],
+        )
+        .map_err(|e| format!("Failed to save Claude binary path: {}", e))?;
+        return Ok(());
+    }
+
     // Validate that the path exists and is executable for system installations
     let path_buf = std::path::PathBuf::from(&path);
     if !path_buf.exists() {
@@ -1960,14 +2031,59 @@ pub async fn list_claude_installations(
 /// Helper function to create a tokio Command with proper environment variables
 /// This ensures commands like Claude can find Node.js and other dependencies
 fn create_command_with_env(program: &str) -> Command {
-    // Convert std::process::Command to tokio::process::Command
-    let _std_cmd = crate::claude_binary::create_command_with_env(program);
-
     // Create a new tokio Command from the program path
     let mut tokio_cmd = Command::new(program);
 
-    // Copy over all environment variables from the std::process::Command
-    // This is a workaround since we can't directly convert between the two types
+    // Set SHELL environment variable for Windows compatibility
+    #[cfg(target_os = "windows")]
+    {
+        use std::path::Path;
+        
+        // Try to find a suitable POSIX shell for Windows
+        let mut shell_path = None;
+        
+        // Check for Git Bash
+        if let Ok(git_bash) = std::env::var("PROGRAMFILES") {
+            let git_bash_path = format!("{}\\Git\\bin\\bash.exe", git_bash);
+            if Path::new(&git_bash_path).exists() {
+                shell_path = Some(git_bash_path);
+            } else {
+                // Try Program Files (x86)
+                if let Ok(git_bash_x86) = std::env::var("PROGRAMFILES(X86)") {
+                    let git_bash_x86_path = format!("{}\\Git\\bin\\bash.exe", git_bash_x86);
+                    if Path::new(&git_bash_x86_path).exists() {
+                        shell_path = Some(git_bash_x86_path);
+                    }
+                }
+            }
+        }
+        
+        // Check for WSL bash
+        if shell_path.is_none() {
+            if Path::new("C:\\Windows\\System32\\bash.exe").exists() {
+                shell_path = Some("C:\\Windows\\System32\\bash.exe".to_string());
+            }
+        }
+        
+        // Check for MSYS2 bash
+        if shell_path.is_none() {
+            if Path::new("C:\\msys64\\usr\\bin\\bash.exe").exists() {
+                shell_path = Some("C:\\msys64\\usr\\bin\\bash.exe".to_string());
+            }
+        }
+        
+        // Fallback to generic bash
+        if shell_path.is_none() {
+            shell_path = Some("bash".to_string());
+        }
+        
+        if let Some(shell) = shell_path {
+            log::info!("Setting SHELL environment variable for agent command on Windows: {}", shell);
+            tokio_cmd.env("SHELL", &shell);
+        }
+    }
+
+    // Copy over all environment variables
     for (key, value) in std::env::vars() {
         if key == "PATH"
             || key == "HOME"

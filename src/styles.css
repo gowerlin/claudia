@@ -1,5 +1,19 @@
 @import "tailwindcss";
 
+/* Zoom functionality styles */
+html, body {
+  overflow-x: hidden; /* Prevent horizontal scrolling during zoom */
+}
+
+body {
+  transition: transform 0.2s ease-out; /* Smooth zoom transitions */
+}
+
+/* Ensure zoom doesn't break fixed positioning */
+.zoom-fixed {
+  position: fixed !important;
+}
+
 /* Dark theme configuration */
 @theme {
   /* Colors */

@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { api, type ClaudeInstallation } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { CheckCircle, Package, HardDrive, Settings } from "lucide-react";
+import { CheckCircle, Package, HardDrive, Settings, Server, Globe } from "lucide-react";
 
 interface ClaudeVersionSelectorProps {
   /**
@@ -114,6 +114,10 @@ export const ClaudeVersionSelector: React.FC<ClaudeVersionSelectorProps> = ({
         return <HardDrive className="h-4 w-4" />;
       case "Custom":
         return <Settings className="h-4 w-4" />;
+      case "Wsl":
+        return <Server className="h-4 w-4" />;
+      case "Remote":
+        return <Globe className="h-4 w-4" />;
       default:
         return <HardDrive className="h-4 w-4" />;
     }
@@ -127,6 +131,10 @@ export const ClaudeVersionSelector: React.FC<ClaudeVersionSelectorProps> = ({
         return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300";
       case "Custom":
         return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300";
+      case "Wsl":
+        return "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300";
+      case "Remote":
+        return "bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-300";
       default:
         return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300";
     }
@@ -168,6 +176,8 @@ export const ClaudeVersionSelector: React.FC<ClaudeVersionSelectorProps> = ({
   const bundledInstallations = installations.filter(i => i.installation_type === "Bundled");
   const systemInstallations = installations.filter(i => i.installation_type === "System");
   const customInstallations = installations.filter(i => i.installation_type === "Custom");
+  const wslInstallations = installations.filter(i => i.installation_type === "Wsl");
+  const remoteInstallations = installations.filter(i => i.installation_type === "Remote");
 
   return (
     <Card className={className}>
@@ -258,6 +268,52 @@ export const ClaudeVersionSelector: React.FC<ClaudeVersionSelectorProps> = ({
                         </div>
                         <Badge variant="outline" className="text-xs">
                           Custom
+                        </Badge>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </>
+              )}
+
+              {wslInstallations.length > 0 && (
+                <>
+                  <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">WSL Installations</div>
+                  {wslInstallations.map((installation) => (
+                    <SelectItem key={installation.path} value={installation.path}>
+                      <div className="flex items-center gap-2 w-full">
+                        {getInstallationIcon(installation)}
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium truncate">
+                            WSL: {installation.path.split(':')[2] || installation.path}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {installation.version || "Version unknown"} • {installation.source}
+                          </div>
+                        </div>
+                        <Badge variant="outline" className="text-xs">
+                          WSL
+                        </Badge>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </>
+              )}
+
+              {remoteInstallations.length > 0 && (
+                <>
+                  <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Remote Installations</div>
+                  {remoteInstallations.map((installation) => (
+                    <SelectItem key={installation.path} value={installation.path}>
+                      <div className="flex items-center gap-2 w-full">
+                        {getInstallationIcon(installation)}
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium truncate">{installation.path}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {installation.version || "Version unknown"} • {installation.source}
+                          </div>
+                        </div>
+                        <Badge variant="outline" className="text-xs">
+                          Remote
                         </Badge>
                       </div>
                     </SelectItem>

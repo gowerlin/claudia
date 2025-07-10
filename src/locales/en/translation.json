@@ -1,0 +1,135 @@
+{
+  "common": {
+    "save": "Save",
+    "saving": "Saving...",
+    "cancel": "Cancel",
+    "back": "Back",
+    "addRule": "Add Rule",
+    "addVariable": "Add Variable",
+    "examples": "Examples:",
+    "commonVariables": "Common variables:"
+  },
+  "settings": {
+    "title": "Settings",
+    "description": "Configure Claude Code preferences",
+    "saveButton": "Save Settings",
+    "savedSuccess": "Settings saved successfully!",
+    "saveFailed": "Failed to save settings",
+    "loadFailed": "Failed to load settings. Please ensure ~/.claude directory exists.",
+    "tabs": {
+      "general": "General",
+      "permissions": "Permissions",
+      "environment": "Environment",
+      "advanced": "Advanced",
+      "hooks": "Hooks",
+      "commands": "Commands",
+      "storage": "Storage",
+      "logs": "Logs"
+    },
+    "general": {
+      "title": "General Settings",
+      "coAuthoredBy": {
+        "label": "Include \"Co-authored by Claude\"",
+        "description": "Add Claude attribution to git commits and pull requests"
+      },
+      "verboseOutput": {
+        "label": "Verbose Output",
+        "description": "Show full bash and command outputs"
+      },
+      "chatRetention": {
+        "label": "Chat Transcript Retention (days)",
+        "description": "How long to retain chat transcripts locally (default: 30 days)",
+        "placeholder": "30"
+      },
+      "claudeInstallation": {
+        "label": "Claude Code Installation",
+        "description": "Select which Claude Code installation to use. Bundled version is recommended for best compatibility.",
+        "changeWarning": "⚠️ Claude binary path has been changed. Remember to save your settings."
+      }
+    },
+    "permissions": {
+      "title": "Permission Rules",
+      "description": "Control which tools Claude Code can use without manual approval",
+      "allowRules": {
+        "title": "Allow Rules",
+        "placeholder": "e.g., Bash(npm run test:*)",
+        "noRules": "No allow rules configured. Claude will ask for approval for all tools."
+      },
+      "denyRules": {
+        "title": "Deny Rules",
+        "placeholder": "e.g., Bash(curl:*)",
+        "noRules": "No deny rules configured."
+      },
+      "examples": {
+        "allowBash": "Allow all bash commands",
+        "allowExact": "Allow exact command",
+        "allowPrefix": "Allow commands with prefix",
+        "allowReadFile": "Allow reading specific file",
+        "allowEditDocs": "Allow editing files in docs directory"
+      }
+    },
+    "environment": {
+      "title": "Environment Variables",
+      "description": "Environment variables applied to every Claude Code session",
+      "keyPlaceholder": "KEY",
+      "valuePlaceholder": "value",
+      "noVariables": "No environment variables configured.",
+      "commonExamples": {
+        "telemetry": "Enable/disable telemetry (0 or 1)",
+        "modelName": "Custom model name",
+        "costWarnings": "Disable cost warnings (1)"
+      }
+    },
+    "advanced": {
+      "title": "Advanced Settings",
+      "description": "Additional configuration options for advanced users",
+      "apiKeyHelper": {
+        "label": "API Key Helper Script",
+        "description": "Custom script to generate auth values for API requests",
+        "placeholder": "/path/to/generate_api_key.sh"
+      },
+      "rawSettings": {
+        "label": "Raw Settings (JSON)",
+        "description": "This shows the raw JSON that will be saved to ~/.claude/settings.json"
+      }
+    },
+    "hooks": {
+      "userHooks": {
+        "title": "User Hooks",
+        "description": "Configure hooks that apply to all Claude Code sessions for your user account.",
+        "storedIn": "These are stored in"
+      }
+    }
+  },
+  "topbar": {
+    "newSession": "New Session",
+    "openProject": "Open Project",
+    "sessions": "Sessions",
+    "settings": "Settings",
+    "usageDashboard": "Usage Dashboard"
+  },
+  "sessions": {
+    "title": "Sessions",
+    "noSessions": "No sessions yet",
+    "startNew": "Start a new session to begin"
+  },
+  "logs": {
+    "viewer": "Log Viewer",
+    "settings": "Settings",
+    "selectFile": "Select a log file",
+    "search": "Search logs...",
+    "autoRefresh": "Auto-refresh",
+    "loading": "Loading logs...",
+    "empty": "No log content",
+    "selectPrompt": "Select a log file to view",
+    "confirmClear": "Are you sure you want to clear all log files?",
+    "configTitle": "Logging Configuration",
+    "configDescription": "Configure how frontend logs are captured and stored",
+    "enableLogging": "Enable frontend logging",
+    "maxFileSize": "Max file size (MB)",
+    "maxFileSizeHelp": "Log files will be rotated when they exceed this size",
+    "maxFiles": "Max number of log files",
+    "maxFilesHelp": "Older log files will be deleted when this limit is reached",
+    "testTitle": "Test Logging"
+  }
+}

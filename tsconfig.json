@@ -27,5 +27,6 @@
     }
   },
   "include": ["src"],
+  "exclude": ["src/lib/logger-example.ts"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

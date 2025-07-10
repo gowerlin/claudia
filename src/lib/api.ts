@@ -106,7 +106,7 @@ export interface ClaudeInstallation {
   /** Source of discovery (e.g., "nvm", "system", "homebrew", "which", "bundled") */
   source: string;
   /** Type of installation */
-  installation_type: "Bundled" | "System" | "Custom";
+  installation_type: "Bundled" | "System" | "Custom" | "Wsl" | "Remote";
 }
 
 // Agent API types

@@ -20,6 +20,9 @@ import { NFOCredits } from "@/components/NFOCredits";
 import { ClaudeBinaryDialog } from "@/components/ClaudeBinaryDialog";
 import { Toast, ToastContainer } from "@/components/ui/toast";
 import { ProjectSettings } from '@/components/ProjectSettings';
+import { ZoomIndicator } from '@/components/ZoomIndicator';
+import { useZoom } from '@/lib/useZoom';
+import "@/lib/i18n"; // Initialize i18n
 
 type View = 
   | "welcome" 
@@ -56,6 +59,9 @@ function App() {
   const [isClaudeStreaming, setIsClaudeStreaming] = useState(false);
   const [projectForSettings, setProjectForSettings] = useState<Project | null>(null);
   const [previousView, setPreviousView] = useState<View>("welcome");
+
+  // Initialize zoom functionality
+  useZoom();
 
   // Load projects on mount when in projects view
   useEffect(() => {
@@ -490,6 +496,9 @@ function App() {
             />
           )}
         </ToastContainer>
+
+        {/* Zoom Indicator */}
+        <ZoomIndicator />
       </div>
     </OutputCacheProvider>
   );
